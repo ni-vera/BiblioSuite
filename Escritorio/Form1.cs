@@ -28,6 +28,8 @@ namespace Escritorio
         }
 
         private BiblioContext? dbContext;
+        
+        HttpClient cliente = new HttpClient();
 
         protected override void OnLoad(EventArgs e)
         {
@@ -77,19 +79,15 @@ namespace Escritorio
 
         }
 
-        private void button1_Click(object sender, EventArgs e)
+        private async void button1_Click(object sender, EventArgs e)
         {
             string isbn = intro_isbn.Text;
-            string noentiendo = string.Format($"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}&key=AIzaSyDFNPFwicG3bCoPtKrZ5cFvRfbsssEYGDs");
-            WebRequest requestObjGet = WebRequest.Create(noentiendo);
-            HttpWebResponse responseObjGet = null;
-            responseObjGet = (HttpWebResponse)requestObjGet.GetResponse();
+            string url_llamada = string.Format($"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}&key=AIzaSyDFNPFwicG3bCoPtKrZ5cFvRfbsssEYGDs");
             string noentiendo2 = null;
-            using (Stream stream = responseObjGet.GetResponseStream())
+            HttpResponseMessage respuesta = await cliente.GetAsync(url_llamada);
+            if (respuesta.IsSuccessStatusCode)
             {
-                StreamReader sr = new StreamReader(stream); 
-                noentiendo2 = @sr.ReadToEnd();
-                sr.Close();
+                noentiendo2 = await respuesta.Content.ReadAsStringAsync();
             }
             Rootobject? resultados = JsonSerializer.Deserialize<Rootobject>(noentiendo2);
             if (resultados.totalItems > 0)
@@ -139,14 +137,17 @@ namespace Escritorio
                 foreach (string artifice in autores)
                 {
                     string variable_peticion = Regex.Replace(artifice, @"\s", "+");
-                    requestObjGet = WebRequest.Create($"http://isni.oclc.org/sru/?query=pica.na+%3D+%22{variable_peticion}%22&operation=searchRetrieve&recordSchema=isni-b");
-                    responseObjGet = null;
-                    responseObjGet = (HttpWebResponse)requestObjGet.GetResponse();
-                    Stream stream = responseObjGet.GetResponseStream();
+                    url_llamada = $"http://isni.oclc.org/sru/?query=pica.na+%3D+%22{variable_peticion}%22&operation=searchRetrieve&recordSchema=isni-b";
+                    Stream stream_respuesta = null;
+                    respuesta = await cliente.GetAsync(url_llamada);
+                    if (respuesta.IsSuccessStatusCode)
+                    {
+                        stream_respuesta = respuesta.Content.ReadAsStream();
+                    }
                     var serializer = new XmlSerializer(typeof(searchRetrieveResponse));
                     try
                     {
-                        searchRetrieveResponse? resultats = serializer.Deserialize(stream) as searchRetrieveResponse;
+                        searchRetrieveResponse? resultats = serializer.Deserialize(stream_respuesta) as searchRetrieveResponse;
                         Autor auctor = null;
                         if (resultats.numberOfRecords > 0)
                         {
